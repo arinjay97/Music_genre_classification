@@ -8,7 +8,7 @@ Dhruv Doshi
 Santosh Saranyan
 
 ## FILES IN REPOSITORY
-**data**: folder containing all necessary datasets and text files to run the project. This file has been compressed as a zip file. Extract before use.
+**data**: https://www.dropbox.com/s/90i3kyd6z2e3s52/data.zip?dl=0 folder containing all necessary datasets and text files to run the project. This file has been compressed as a zip file. Extract before use.
 
 **data_merging**: This file contains python code to get information about a song’s genre from last.fm’s API and combine it with our dataset.
 
