@@ -23,3 +23,6 @@ Santosh Saranyan
 **Word_Embeddings**: This is a notebook file that trains and creates Word2Vec embeddings on the corpus. A word similarity plot is visualized for the Word2Vec and pre-trained GloVe embeddings with the help of t-SNE to reduce dimensions.
 
 **LSTM_Model**: This is a notebook file that builds, trains and evaluates an LSTM model with PyTorch. Two models are trained, one for each word embedding.
+
+## SOURCE FOR THE DATASET
+https://www.kaggle.com/datasets/neisse/scrapped-lyrics-from-6-genres 
