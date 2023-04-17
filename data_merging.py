@@ -57,5 +57,5 @@ artists_to_keep = list(artist_with_genres.keys())
 filtered_df = songs[songs['Artist'].isin(artists_to_keep)]
 
 # Save the file for preprocessing before training
-filtered_df.to_csv("training_data.csv")
+filtered_df.to_csv("data/training_data.csv")
 
