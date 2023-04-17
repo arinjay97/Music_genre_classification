@@ -1,0 +1,1174 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": []
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# SVM implementation for Music Genre Classification using song lyrics"
+      ],
+      "metadata": {
+        "id": "rhRgh8D0k88u"
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "### Common code to import libraries and read dataset"
+      ],
+      "metadata": {
+        "id": "cHRUDW0CL8Vx"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import pandas as pd\n",
+        "from sklearn.preprocessing import LabelEncoder\n",
+        "import numpy as np\n",
+        "from gensim.models import KeyedVectors\n",
+        "import ast\n",
+        "\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "from sklearn.svm import SVC\n",
+        "from sklearn.metrics import accuracy_score,precision_score, recall_score\n",
+        "from sklearn.model_selection import GridSearchCV\n",
+        "\n",
+        "from gensim.test.utils import get_tmpfile\n",
+        "from gensim.models import KeyedVectors\n",
+        "from gensim.scripts.glove2word2vec import glove2word2vec"
+      ],
+      "metadata": {
+        "id": "bPb1h_3aaeLX"
+      },
+      "execution_count": 8,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df = pd.read_csv('data/Processed_Lyric_Dataset.csv')"
+      ],
+      "metadata": {
+        "id": "QDaF_fu0bqJu"
+      },
+      "execution_count": 9,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df.head(10)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 719
+        },
+        "id": "h8g6HTucasFS",
+        "outputId": "edbcb67a-5e87-416a-a962-17307d60144e"
+      },
+      "execution_count": 10,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "   Unnamed: 0         Artist  \\\n",
+              "0           0  Ivete Sangalo   \n",
+              "1           1  Ivete Sangalo   \n",
+              "2           2  Ivete Sangalo   \n",
+              "3           3  Ivete Sangalo   \n",
+              "4           4  Ivete Sangalo   \n",
+              "5           5  Ivete Sangalo   \n",
+              "6           6  Ivete Sangalo   \n",
+              "7           7  Ivete Sangalo   \n",
+              "8           8  Ivete Sangalo   \n",
+              "9          10  Ivete Sangalo   \n",
+              "\n",
+              "                                               SName  \\\n",
+              "0                                   Careless Whisper   \n",
+              "1  Could You Be Loved / Citação Musical do Rap: S...   \n",
+              "2                             Cruisin' (Part. Saulo)   \n",
+              "3                                               Easy   \n",
+              "4                  For Your Babies (The Voice cover)   \n",
+              "5                                       Human Nature   \n",
+              "6     Losing Control (Miss Cady feat. Ivete Sangalo)   \n",
+              "7                           Master Blaster (Jammin')   \n",
+              "8                                    More Than Words   \n",
+              "9              Where It Begins (feat. Nelly Furtado)   \n",
+              "\n",
+              "                                               Lyric Genre  \\\n",
+              "0  I feel so unsure\\nAs I take your hand and lead...   pop   \n",
+              "1  Don't let them fool, ya\\nOr even try to school...   pop   \n",
+              "2  Baby, let's cruise, away from here\\nDon't be c...   pop   \n",
+              "3  Know it sounds funny\\nBut, I just can't stand ...   pop   \n",
+              "4  You've got that look again\\nThe one I hoped I ...   pop   \n",
+              "5  Looking out\\nAcross the night time\\nThe city w...   pop   \n",
+              "6  Uh, yeah.\\nGo, go, go.\\nUh, yeah.\\nUh, Uh, Uhh...   pop   \n",
+              "7  Everyone's feeling pretty\\nIt's hotter than Ju...   pop   \n",
+              "8  Saying 'I Love you'\\nIs not the words I want t...   pop   \n",
+              "9  When you're alone and you don't know how,\\nTo ...   pop   \n",
+              "\n",
+              "                                      LyricProcessed  \\\n",
+              "0  [['feel', 'unsure'], ['take', 'hand', 'lead', ...   \n",
+              "1  [['let', 'fool', 'ya'], ['even', 'try', 'schoo...   \n",
+              "2  [['baby', 'let', 'cruise', 'away'], ['confuse'...   \n",
+              "3  [['know', 'sound', 'funny'], ['cant', 'stand',...   \n",
+              "4  [['get', 'look'], ['one', 'hop', 'lad'], ['fac...   \n",
+              "5  [['look'], ['across', 'night', 'time'], ['city...   \n",
+              "6  [['uh', 'yeah..', 'go', 'go', 'go..', 'uh', 'y...   \n",
+              "7  [['everyones', 'feel', 'pretty'], ['hotter', '...   \n",
+              "8  [['say', 'love'], ['word', 'want', 'hear'], ['...   \n",
+              "9  [['alone', 'know'], ['fill', 'hole', 'inside',...   \n",
+              "\n",
+              "                                          LyricsList  \n",
+              "0  [['feel', 'unsure'], ['take', 'hand', 'lead', ...  \n",
+              "1  [['let', 'fool', 'ya'], ['even', 'try', 'schoo...  \n",
+              "2  [['baby', 'let', 'cruise', 'away'], ['confuse'...  \n",
+              "3  [['know', 'sound', 'funny'], ['cant', 'stand',...  \n",
+              "4  [['get', 'look'], ['one', 'hop', 'lad'], ['fac...  \n",
+              "5  [['look'], ['across', 'night', 'time'], ['city...  \n",
+              "6  [['uh', 'yeah..', 'go', 'go', 'go..', 'uh', 'y...  \n",
+              "7  [['everyones', 'feel', 'pretty'], ['hotter', '...  \n",
+              "8  [['say', 'love'], ['word', 'want', 'hear'], ['...  \n",
+              "9  [['alone', 'know'], ['fill', 'hole', 'inside',...  "
+            ],
+            "text/html": [
+              "\n",
+              "  <div id=\"df-083ec7e5-7fa1-41ab-bfd7-5d4e76cd3d02\">\n",
+              "    <div class=\"colab-df-container\">\n",
+              "      <div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Unnamed: 0</th>\n",
+              "      <th>Artist</th>\n",
+              "      <th>SName</th>\n",
+              "      <th>Lyric</th>\n",
+              "      <th>Genre</th>\n",
+              "      <th>LyricProcessed</th>\n",
+              "      <th>LyricsList</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>0</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Careless Whisper</td>\n",
+              "      <td>I feel so unsure\\nAs I take your hand and lead...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['feel', 'unsure'], ['take', 'hand', 'lead', ...</td>\n",
+              "      <td>[['feel', 'unsure'], ['take', 'hand', 'lead', ...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>1</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Could You Be Loved / Citação Musical do Rap: S...</td>\n",
+              "      <td>Don't let them fool, ya\\nOr even try to school...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['let', 'fool', 'ya'], ['even', 'try', 'schoo...</td>\n",
+              "      <td>[['let', 'fool', 'ya'], ['even', 'try', 'schoo...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>2</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Cruisin' (Part. Saulo)</td>\n",
+              "      <td>Baby, let's cruise, away from here\\nDon't be c...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['baby', 'let', 'cruise', 'away'], ['confuse'...</td>\n",
+              "      <td>[['baby', 'let', 'cruise', 'away'], ['confuse'...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>3</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Easy</td>\n",
+              "      <td>Know it sounds funny\\nBut, I just can't stand ...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['know', 'sound', 'funny'], ['cant', 'stand',...</td>\n",
+              "      <td>[['know', 'sound', 'funny'], ['cant', 'stand',...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>4</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>For Your Babies (The Voice cover)</td>\n",
+              "      <td>You've got that look again\\nThe one I hoped I ...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['get', 'look'], ['one', 'hop', 'lad'], ['fac...</td>\n",
+              "      <td>[['get', 'look'], ['one', 'hop', 'lad'], ['fac...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>5</th>\n",
+              "      <td>5</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Human Nature</td>\n",
+              "      <td>Looking out\\nAcross the night time\\nThe city w...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['look'], ['across', 'night', 'time'], ['city...</td>\n",
+              "      <td>[['look'], ['across', 'night', 'time'], ['city...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>6</th>\n",
+              "      <td>6</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Losing Control (Miss Cady feat. Ivete Sangalo)</td>\n",
+              "      <td>Uh, yeah.\\nGo, go, go.\\nUh, yeah.\\nUh, Uh, Uhh...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['uh', 'yeah..', 'go', 'go', 'go..', 'uh', 'y...</td>\n",
+              "      <td>[['uh', 'yeah..', 'go', 'go', 'go..', 'uh', 'y...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>7</th>\n",
+              "      <td>7</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Master Blaster (Jammin')</td>\n",
+              "      <td>Everyone's feeling pretty\\nIt's hotter than Ju...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['everyones', 'feel', 'pretty'], ['hotter', '...</td>\n",
+              "      <td>[['everyones', 'feel', 'pretty'], ['hotter', '...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>8</th>\n",
+              "      <td>8</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>More Than Words</td>\n",
+              "      <td>Saying 'I Love you'\\nIs not the words I want t...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['say', 'love'], ['word', 'want', 'hear'], ['...</td>\n",
+              "      <td>[['say', 'love'], ['word', 'want', 'hear'], ['...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>9</th>\n",
+              "      <td>10</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Where It Begins (feat. Nelly Furtado)</td>\n",
+              "      <td>When you're alone and you don't know how,\\nTo ...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['alone', 'know'], ['fill', 'hole', 'inside',...</td>\n",
+              "      <td>[['alone', 'know'], ['fill', 'hole', 'inside',...</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>\n",
+              "      <button class=\"colab-df-convert\" onclick=\"convertToInteractive('df-083ec7e5-7fa1-41ab-bfd7-5d4e76cd3d02')\"\n",
+              "              title=\"Convert this dataframe to an interactive table.\"\n",
+              "              style=\"display:none;\">\n",
+              "        \n",
+              "  <svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\"viewBox=\"0 0 24 24\"\n",
+              "       width=\"24px\">\n",
+              "    <path d=\"M0 0h24v24H0V0z\" fill=\"none\"/>\n",
+              "    <path d=\"M18.56 5.44l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94zm-11 1L8.5 8.5l.94-2.06 2.06-.94-2.06-.94L8.5 2.5l-.94 2.06-2.06.94zm10 10l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94z\"/><path d=\"M17.41 7.96l-1.37-1.37c-.4-.4-.92-.59-1.43-.59-.52 0-1.04.2-1.43.59L10.3 9.45l-7.72 7.72c-.78.78-.78 2.05 0 2.83L4 21.41c.39.39.9.59 1.41.59.51 0 1.02-.2 1.41-.59l7.78-7.78 2.81-2.81c.8-.78.8-2.07 0-2.86zM5.41 20L4 18.59l7.72-7.72 1.47 1.35L5.41 20z\"/>\n",
+              "  </svg>\n",
+              "      </button>\n",
+              "      \n",
+              "  <style>\n",
+              "    .colab-df-container {\n",
+              "      display:flex;\n",
+              "      flex-wrap:wrap;\n",
+              "      gap: 12px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert {\n",
+              "      background-color: #E8F0FE;\n",
+              "      border: none;\n",
+              "      border-radius: 50%;\n",
+              "      cursor: pointer;\n",
+              "      display: none;\n",
+              "      fill: #1967D2;\n",
+              "      height: 32px;\n",
+              "      padding: 0 0 0 0;\n",
+              "      width: 32px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert:hover {\n",
+              "      background-color: #E2EBFA;\n",
+              "      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "      fill: #174EA6;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert {\n",
+              "      background-color: #3B4455;\n",
+              "      fill: #D2E3FC;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert:hover {\n",
+              "      background-color: #434B5C;\n",
+              "      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);\n",
+              "      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));\n",
+              "      fill: #FFFFFF;\n",
+              "    }\n",
+              "  </style>\n",
+              "\n",
+              "      <script>\n",
+              "        const buttonEl =\n",
+              "          document.querySelector('#df-083ec7e5-7fa1-41ab-bfd7-5d4e76cd3d02 button.colab-df-convert');\n",
+              "        buttonEl.style.display =\n",
+              "          google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "\n",
+              "        async function convertToInteractive(key) {\n",
+              "          const element = document.querySelector('#df-083ec7e5-7fa1-41ab-bfd7-5d4e76cd3d02');\n",
+              "          const dataTable =\n",
+              "            await google.colab.kernel.invokeFunction('convertToInteractive',\n",
+              "                                                     [key], {});\n",
+              "          if (!dataTable) return;\n",
+              "\n",
+              "          const docLinkHtml = 'Like what you see? Visit the ' +\n",
+              "            '<a target=\"_blank\" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'\n",
+              "            + ' to learn more about interactive tables.';\n",
+              "          element.innerHTML = '';\n",
+              "          dataTable['output_type'] = 'display_data';\n",
+              "          await google.colab.output.renderOutput(dataTable, element);\n",
+              "          const docLink = document.createElement('div');\n",
+              "          docLink.innerHTML = docLinkHtml;\n",
+              "          element.appendChild(docLink);\n",
+              "        }\n",
+              "      </script>\n",
+              "    </div>\n",
+              "  </div>\n",
+              "  "
+            ]
+          },
+          "metadata": {},
+          "execution_count": 10
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 11,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 476
+        },
+        "id": "UKTHE8AqWNG8",
+        "outputId": "3ad9292d-1a3d-45c7-8aaf-685567022128"
+      },
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "   Unnamed: 0         Artist  \\\n",
+              "0           0  Ivete Sangalo   \n",
+              "1           1  Ivete Sangalo   \n",
+              "2           2  Ivete Sangalo   \n",
+              "3           3  Ivete Sangalo   \n",
+              "4           4  Ivete Sangalo   \n",
+              "\n",
+              "                                               SName  \\\n",
+              "0                                   Careless Whisper   \n",
+              "1  Could You Be Loved / Citação Musical do Rap: S...   \n",
+              "2                             Cruisin' (Part. Saulo)   \n",
+              "3                                               Easy   \n",
+              "4                  For Your Babies (The Voice cover)   \n",
+              "\n",
+              "                                               Lyric Genre  \\\n",
+              "0  I feel so unsure\\nAs I take your hand and lead...   pop   \n",
+              "1  Don't let them fool, ya\\nOr even try to school...   pop   \n",
+              "2  Baby, let's cruise, away from here\\nDon't be c...   pop   \n",
+              "3  Know it sounds funny\\nBut, I just can't stand ...   pop   \n",
+              "4  You've got that look again\\nThe one I hoped I ...   pop   \n",
+              "\n",
+              "                                      LyricProcessed  \\\n",
+              "0  [['feel', 'unsure'], ['take', 'hand', 'lead', ...   \n",
+              "1  [['let', 'fool', 'ya'], ['even', 'try', 'schoo...   \n",
+              "2  [['baby', 'let', 'cruise', 'away'], ['confuse'...   \n",
+              "3  [['know', 'sound', 'funny'], ['cant', 'stand',...   \n",
+              "4  [['get', 'look'], ['one', 'hop', 'lad'], ['fac...   \n",
+              "\n",
+              "                                          LyricsList  Genre_Encoded  \n",
+              "0  [['feel', 'unsure'], ['take', 'hand', 'lead', ...              9  \n",
+              "1  [['let', 'fool', 'ya'], ['even', 'try', 'schoo...              9  \n",
+              "2  [['baby', 'let', 'cruise', 'away'], ['confuse'...              9  \n",
+              "3  [['know', 'sound', 'funny'], ['cant', 'stand',...              9  \n",
+              "4  [['get', 'look'], ['one', 'hop', 'lad'], ['fac...              9  "
+            ],
+            "text/html": [
+              "\n",
+              "  <div id=\"df-d3c2cfe6-2a92-4806-b74d-550464a188ac\">\n",
+              "    <div class=\"colab-df-container\">\n",
+              "      <div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Unnamed: 0</th>\n",
+              "      <th>Artist</th>\n",
+              "      <th>SName</th>\n",
+              "      <th>Lyric</th>\n",
+              "      <th>Genre</th>\n",
+              "      <th>LyricProcessed</th>\n",
+              "      <th>LyricsList</th>\n",
+              "      <th>Genre_Encoded</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>0</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Careless Whisper</td>\n",
+              "      <td>I feel so unsure\\nAs I take your hand and lead...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['feel', 'unsure'], ['take', 'hand', 'lead', ...</td>\n",
+              "      <td>[['feel', 'unsure'], ['take', 'hand', 'lead', ...</td>\n",
+              "      <td>9</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>1</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Could You Be Loved / Citação Musical do Rap: S...</td>\n",
+              "      <td>Don't let them fool, ya\\nOr even try to school...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['let', 'fool', 'ya'], ['even', 'try', 'schoo...</td>\n",
+              "      <td>[['let', 'fool', 'ya'], ['even', 'try', 'schoo...</td>\n",
+              "      <td>9</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>2</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Cruisin' (Part. Saulo)</td>\n",
+              "      <td>Baby, let's cruise, away from here\\nDon't be c...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['baby', 'let', 'cruise', 'away'], ['confuse'...</td>\n",
+              "      <td>[['baby', 'let', 'cruise', 'away'], ['confuse'...</td>\n",
+              "      <td>9</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>3</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>Easy</td>\n",
+              "      <td>Know it sounds funny\\nBut, I just can't stand ...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['know', 'sound', 'funny'], ['cant', 'stand',...</td>\n",
+              "      <td>[['know', 'sound', 'funny'], ['cant', 'stand',...</td>\n",
+              "      <td>9</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>4</td>\n",
+              "      <td>Ivete Sangalo</td>\n",
+              "      <td>For Your Babies (The Voice cover)</td>\n",
+              "      <td>You've got that look again\\nThe one I hoped I ...</td>\n",
+              "      <td>pop</td>\n",
+              "      <td>[['get', 'look'], ['one', 'hop', 'lad'], ['fac...</td>\n",
+              "      <td>[['get', 'look'], ['one', 'hop', 'lad'], ['fac...</td>\n",
+              "      <td>9</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>\n",
+              "      <button class=\"colab-df-convert\" onclick=\"convertToInteractive('df-d3c2cfe6-2a92-4806-b74d-550464a188ac')\"\n",
+              "              title=\"Convert this dataframe to an interactive table.\"\n",
+              "              style=\"display:none;\">\n",
+              "        \n",
+              "  <svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\"viewBox=\"0 0 24 24\"\n",
+              "       width=\"24px\">\n",
+              "    <path d=\"M0 0h24v24H0V0z\" fill=\"none\"/>\n",
+              "    <path d=\"M18.56 5.44l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94zm-11 1L8.5 8.5l.94-2.06 2.06-.94-2.06-.94L8.5 2.5l-.94 2.06-2.06.94zm10 10l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94z\"/><path d=\"M17.41 7.96l-1.37-1.37c-.4-.4-.92-.59-1.43-.59-.52 0-1.04.2-1.43.59L10.3 9.45l-7.72 7.72c-.78.78-.78 2.05 0 2.83L4 21.41c.39.39.9.59 1.41.59.51 0 1.02-.2 1.41-.59l7.78-7.78 2.81-2.81c.8-.78.8-2.07 0-2.86zM5.41 20L4 18.59l7.72-7.72 1.47 1.35L5.41 20z\"/>\n",
+              "  </svg>\n",
+              "      </button>\n",
+              "      \n",
+              "  <style>\n",
+              "    .colab-df-container {\n",
+              "      display:flex;\n",
+              "      flex-wrap:wrap;\n",
+              "      gap: 12px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert {\n",
+              "      background-color: #E8F0FE;\n",
+              "      border: none;\n",
+              "      border-radius: 50%;\n",
+              "      cursor: pointer;\n",
+              "      display: none;\n",
+              "      fill: #1967D2;\n",
+              "      height: 32px;\n",
+              "      padding: 0 0 0 0;\n",
+              "      width: 32px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert:hover {\n",
+              "      background-color: #E2EBFA;\n",
+              "      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "      fill: #174EA6;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert {\n",
+              "      background-color: #3B4455;\n",
+              "      fill: #D2E3FC;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert:hover {\n",
+              "      background-color: #434B5C;\n",
+              "      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);\n",
+              "      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));\n",
+              "      fill: #FFFFFF;\n",
+              "    }\n",
+              "  </style>\n",
+              "\n",
+              "      <script>\n",
+              "        const buttonEl =\n",
+              "          document.querySelector('#df-d3c2cfe6-2a92-4806-b74d-550464a188ac button.colab-df-convert');\n",
+              "        buttonEl.style.display =\n",
+              "          google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "\n",
+              "        async function convertToInteractive(key) {\n",
+              "          const element = document.querySelector('#df-d3c2cfe6-2a92-4806-b74d-550464a188ac');\n",
+              "          const dataTable =\n",
+              "            await google.colab.kernel.invokeFunction('convertToInteractive',\n",
+              "                                                     [key], {});\n",
+              "          if (!dataTable) return;\n",
+              "\n",
+              "          const docLinkHtml = 'Like what you see? Visit the ' +\n",
+              "            '<a target=\"_blank\" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'\n",
+              "            + ' to learn more about interactive tables.';\n",
+              "          element.innerHTML = '';\n",
+              "          dataTable['output_type'] = 'display_data';\n",
+              "          await google.colab.output.renderOutput(dataTable, element);\n",
+              "          const docLink = document.createElement('div');\n",
+              "          docLink.innerHTML = docLinkHtml;\n",
+              "          element.appendChild(docLink);\n",
+              "        }\n",
+              "      </script>\n",
+              "    </div>\n",
+              "  </div>\n",
+              "  "
+            ]
+          },
+          "metadata": {},
+          "execution_count": 11
+        }
+      ],
+      "source": [
+        "# Performing label encoding on the Genre column\n",
+        "label_encoder = LabelEncoder()\n",
+        "df['Genre_Encoded'] = label_encoder.fit_transform(df['Genre'])\n",
+        "df.head(5)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df['LyricsList'] = df['LyricsList'].apply(lambda x: ast.literal_eval(x))"
+      ],
+      "metadata": {
+        "id": "IX74g6IolNE2"
+      },
+      "execution_count": 12,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "### Using Word2Vec embeddings"
+      ],
+      "metadata": {
+        "id": "PWYbVaiXMq3V"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# load word embedding files\n",
+        "def read_embeddings(training_file):\n",
+        "    '''Loads and parses embeddings trained in earlier.\n",
+        "    '''\n",
+        "\n",
+        "    model = KeyedVectors.load_word2vec_format(training_file, binary=False)\n",
+        "    \n",
+        "    # Create a dictionary that maps words to their embeddings\n",
+        "    word_to_embeddings = {word: model[word] for word in model.key_to_index}\n",
+        "  \n",
+        "    return word_to_embeddings"
+      ],
+      "metadata": {
+        "id": "hMsple5eeJxh"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "word_to_embeddings = read_embeddings('data/w2v_embeddings.txt')"
+      ],
+      "metadata": {
+        "id": "UGCXTALLhlO1"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "## SVM Model without any tuning: Vector by averaging"
+      ],
+      "metadata": {
+        "id": "FGDt2MwxlTMm"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# convert lyrics to vectors based on the word embeddings\n",
+        "data = [] \n",
+        "labels = [] \n",
+        "\n",
+        "for _, row in df.iterrows(): \n",
+        "  label = row[\"Genre\"] \n",
+        "  lyrics = row[\"LyricsList\"] \n",
+        "  feature_vector = np.zeros((200,)) \n",
+        "  song_length = 0 \n",
+        "  for line in lyrics: \n",
+        "    song_length += len(line) \n",
+        "    for word in line: \n",
+        "      try:\n",
+        "        feature_vector += word_to_embeddings[word] \n",
+        "      except:\n",
+        "        pass\n",
+        "  data.append(feature_vector/song_length) \n",
+        "  labels.append(label)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "br26mT9Ibni7",
+        "outputId": "53639259-9be6-4b44-da75-f7f8e8e302c1"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "<ipython-input-8-22ed93fe98d8>:17: RuntimeWarning: invalid value encountered in true_divide\n",
+            "  data.append(feature_vector/song_length)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# check for nan values in data\n",
+        "# if present, remove that row in data and labels\n",
+        "index_to_remove = list()\n",
+        "c = 0\n",
+        "for i in range(len(data)):\n",
+        "  if np.isnan(data[i]).any():\n",
+        "    index_to_remove.append(i)\n",
+        "\n",
+        "\n",
+        "index_to_remove = sorted(index_to_remove, reverse=True)\n",
+        "for i in index_to_remove:\n",
+        "  data.pop(i)\n",
+        "  labels.pop(i)"
+      ],
+      "metadata": {
+        "id": "JVs6e5q1nsSz"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# split data into train and test\n",
+        "X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, random_state=42)"
+      ],
+      "metadata": {
+        "id": "RF2Aq66nkQqV"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "svm_model = SVC(kernel='linear', C=1.0)\n",
+        "svm_model.fit(X_train, y_train)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 75
+        },
+        "id": "Hs5VKsQ4mzYs",
+        "outputId": "70415388-c08c-469b-d527-33aef6d3dda1"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "SVC(kernel='linear')"
+            ],
+            "text/html": [
+              "<style>#sk-container-id-1 {color: black;background-color: white;}#sk-container-id-1 pre{padding: 0;}#sk-container-id-1 div.sk-toggleable {background-color: white;}#sk-container-id-1 label.sk-toggleable__label {cursor: pointer;display: block;width: 100%;margin-bottom: 0;padding: 0.3em;box-sizing: border-box;text-align: center;}#sk-container-id-1 label.sk-toggleable__label-arrow:before {content: \"▸\";float: left;margin-right: 0.25em;color: #696969;}#sk-container-id-1 label.sk-toggleable__label-arrow:hover:before {color: black;}#sk-container-id-1 div.sk-estimator:hover label.sk-toggleable__label-arrow:before {color: black;}#sk-container-id-1 div.sk-toggleable__content {max-height: 0;max-width: 0;overflow: hidden;text-align: left;background-color: #f0f8ff;}#sk-container-id-1 div.sk-toggleable__content pre {margin: 0.2em;color: black;border-radius: 0.25em;background-color: #f0f8ff;}#sk-container-id-1 input.sk-toggleable__control:checked~div.sk-toggleable__content {max-height: 200px;max-width: 100%;overflow: auto;}#sk-container-id-1 input.sk-toggleable__control:checked~label.sk-toggleable__label-arrow:before {content: \"▾\";}#sk-container-id-1 div.sk-estimator input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 div.sk-label input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 input.sk-hidden--visually {border: 0;clip: rect(1px 1px 1px 1px);clip: rect(1px, 1px, 1px, 1px);height: 1px;margin: -1px;overflow: hidden;padding: 0;position: absolute;width: 1px;}#sk-container-id-1 div.sk-estimator {font-family: monospace;background-color: #f0f8ff;border: 1px dotted black;border-radius: 0.25em;box-sizing: border-box;margin-bottom: 0.5em;}#sk-container-id-1 div.sk-estimator:hover {background-color: #d4ebff;}#sk-container-id-1 div.sk-parallel-item::after {content: \"\";width: 100%;border-bottom: 1px solid gray;flex-grow: 1;}#sk-container-id-1 div.sk-label:hover label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 div.sk-serial::before {content: \"\";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: 0;}#sk-container-id-1 div.sk-serial {display: flex;flex-direction: column;align-items: center;background-color: white;padding-right: 0.2em;padding-left: 0.2em;position: relative;}#sk-container-id-1 div.sk-item {position: relative;z-index: 1;}#sk-container-id-1 div.sk-parallel {display: flex;align-items: stretch;justify-content: center;background-color: white;position: relative;}#sk-container-id-1 div.sk-item::before, #sk-container-id-1 div.sk-parallel-item::before {content: \"\";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: -1;}#sk-container-id-1 div.sk-parallel-item {display: flex;flex-direction: column;z-index: 1;position: relative;background-color: white;}#sk-container-id-1 div.sk-parallel-item:first-child::after {align-self: flex-end;width: 50%;}#sk-container-id-1 div.sk-parallel-item:last-child::after {align-self: flex-start;width: 50%;}#sk-container-id-1 div.sk-parallel-item:only-child::after {width: 0;}#sk-container-id-1 div.sk-dashed-wrapped {border: 1px dashed gray;margin: 0 0.4em 0.5em 0.4em;box-sizing: border-box;padding-bottom: 0.4em;background-color: white;}#sk-container-id-1 div.sk-label label {font-family: monospace;font-weight: bold;display: inline-block;line-height: 1.2em;}#sk-container-id-1 div.sk-label-container {text-align: center;}#sk-container-id-1 div.sk-container {/* jupyter's `normalize.less` sets `[hidden] { display: none; }` but bootstrap.min.css set `[hidden] { display: none !important; }` so we also need the `!important` here to be able to override the default hidden behavior on the sphinx rendered scikit-learn.org. See: https://github.com/scikit-learn/scikit-learn/issues/21755 */display: inline-block !important;position: relative;}#sk-container-id-1 div.sk-text-repr-fallback {display: none;}</style><div id=\"sk-container-id-1\" class=\"sk-top-container\"><div class=\"sk-text-repr-fallback\"><pre>SVC(kernel=&#x27;linear&#x27;)</pre><b>In a Jupyter environment, please rerun this cell to show the HTML representation or trust the notebook. <br />On GitHub, the HTML representation is unable to render, please try loading this page with nbviewer.org.</b></div><div class=\"sk-container\" hidden><div class=\"sk-item\"><div class=\"sk-estimator sk-toggleable\"><input class=\"sk-toggleable__control sk-hidden--visually\" id=\"sk-estimator-id-1\" type=\"checkbox\" checked><label for=\"sk-estimator-id-1\" class=\"sk-toggleable__label sk-toggleable__label-arrow\">SVC</label><div class=\"sk-toggleable__content\"><pre>SVC(kernel=&#x27;linear&#x27;)</pre></div></div></div></div></div>"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 58
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "y_pred = svm_model.predict(X_test)\n",
+        "accuracy = accuracy_score(y_test, y_pred)\n",
+        "print('Accuracy:', accuracy)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "hmxx_SDBnnUw",
+        "outputId": "99e8ee67-458c-474c-92ae-4e6986289c76"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Accuracy: 0.4182721645889635\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "precision = precision_score(y_test, y_pred, average='weighted')\n",
+        "recall = recall_score(y_test, y_pred, average='weighted')\n",
+        "\n",
+        "print(\"Precision:\", precision)\n",
+        "print(\"Recall:\", recall)"
+      ],
+      "metadata": {
+        "id": "AcaintH_shrB"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "### Tune the SVM model using the parameter C"
+      ],
+      "metadata": {
+        "id": "5oqy-gXpelii"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "# Defining the range of C values to consider\n",
+        "C_range = [0.1, 1, 10]\n",
+        "\n",
+        "# Creating a dictionary of parameter values to search\n",
+        "param_grid = {'C': C_range}\n",
+        "\n",
+        "# Defining the SVM model\n",
+        "svm = SVC(kernel='linear')\n",
+        "\n",
+        "# Performing a grid search to find the best value of C\n",
+        "grid = GridSearchCV(svm, param_grid, cv=2, verbose=3)\n",
+        "grid.fit(X_train, y_train)\n",
+        "\n",
+        "# Print the best value of C and the corresponding accuracy score\n",
+        "print(\"Best C:\", grid.best_params_['C'])\n",
+        "print(\"Accuracy:\", grid.best_score_)\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "72657AFaepai",
+        "outputId": "059b1549-f0de-402e-eff2-0cf8797ce4b8"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Fitting 2 folds for each of 3 candidates, totalling 6 fits\n",
+            "[CV 1/2] END .............................C=0.1;, score=0.412 total time=10.1min\n",
+            "[CV 2/2] END .............................C=0.1;, score=0.410 total time= 9.8min\n",
+            "[CV 1/2] END ...............................C=1;, score=0.421 total time= 9.6min\n",
+            "[CV 2/2] END ...............................C=1;, score=0.419 total time= 9.7min\n",
+            "[CV 1/2] END ..............................C=10;, score=0.422 total time=11.7min\n",
+            "[CV 2/2] END ..............................C=10;, score=0.421 total time=11.7min\n",
+            "Best C: 10\n",
+            "Accuracy: 0.42146328705620817\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "### Read Glove embeddings"
+      ],
+      "metadata": {
+        "id": "Hs6KdwKreM9k"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "word_to_embeddings = read_embeddings('GloVe_Embeddings (1).txt')"
+      ],
+      "metadata": {
+        "id": "J9FHIi88eI2t"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "## Using GLoVe embeddings"
+      ],
+      "metadata": {
+        "id": "fY5O2F8KldHB"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# convert lyrics to vectors based on the word embeddings\n",
+        "data = [] \n",
+        "labels = [] \n",
+        "\n",
+        "for _, row in df.iterrows(): \n",
+        "  label = row[\"Genre\"] \n",
+        "  lyrics = row[\"LyricsList\"] \n",
+        "  feature_vector = np.zeros((200,)) \n",
+        "  song_length = 0 \n",
+        "  for line in lyrics: \n",
+        "    song_length += len(line) \n",
+        "    for word in line: \n",
+        "      try:\n",
+        "        feature_vector += word_to_embeddings[word] \n",
+        "      except:\n",
+        "        pass\n",
+        "  data.append(feature_vector/song_length) \n",
+        "  labels.append(label)"
+      ],
+      "metadata": {
+        "id": "jMjVGlhJlgzL",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "1b3008bb-b35f-4f12-f4a7-9330b4031d57"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "<ipython-input-21-22ed93fe98d8>:17: RuntimeWarning: invalid value encountered in true_divide\n",
+            "  data.append(feature_vector/song_length)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# check for nan values in data\n",
+        "# if present, remove that row in data and labels\n",
+        "index_to_remove = list()\n",
+        "c = 0\n",
+        "for i in range(len(data)):\n",
+        "  if np.isnan(data[i]).any():\n",
+        "    index_to_remove.append(i)\n",
+        "\n",
+        "\n",
+        "index_to_remove = sorted(index_to_remove, reverse=True)\n",
+        "for i in index_to_remove:\n",
+        "  data.pop(i)\n",
+        "  labels.pop(i)"
+      ],
+      "metadata": {
+        "id": "USX6HW_nljyW"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# split data into train and test\n",
+        "X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, random_state=42)\n",
+        "\n",
+        "svm_model = SVC(kernel='linear', C=1.0)\n",
+        "svm_model.fit(X_train, y_train)\n",
+        "\n",
+        "y_pred = svm_model.predict(X_test)\n",
+        "accuracy = accuracy_score(y_test, y_pred)\n",
+        "print('Accuracy:', accuracy)\n",
+        "\n",
+        "precision = precision_score(y_test, y_pred, average='weighted')\n",
+        "recall = recall_score(y_test, y_pred, average='weighted')\n",
+        "\n",
+        "print(\"Precision:\", precision)\n",
+        "print(\"Recall:\", recall)"
+      ],
+      "metadata": {
+        "id": "Le7j9In9ljwR",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "d6cce8a4-9813-4947-fa0f-e95135cecc94"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Accuracy: 0.25664719728009766\n",
+            "Precision: 0.06586778387172937\n",
+            "Recall: 0.25664719728009766\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "/usr/local/lib/python3.9/dist-packages/sklearn/metrics/_classification.py:1344: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.\n",
+            "  _warn_prf(average, modifier, msg_start, len(result))\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "### Reading improved GloVe embeddings"
+      ],
+      "metadata": {
+        "id": "vC7y1CLPqbnw"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# load word embedding files\n",
+        "def read_embeddings(training_file):\n",
+        "    '''Loads and parses embeddings trained in earlier.\n",
+        "    '''\n",
+        "\n",
+        "    model = KeyedVectors.load_word2vec_format(training_file, binary=False)\n",
+        "    \n",
+        "    # Create a dictionary that maps words to their embeddings\n",
+        "    word_to_embeddings = {word: model[word] for word in model.key_to_index}\n",
+        "    \n",
+        "    return word_to_embeddings"
+      ],
+      "metadata": {
+        "id": "jpfgm-7iljtq"
+      },
+      "execution_count": 13,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# read the glove txt file\n",
+        "\n",
+        "glove_file = \"data/glove.6B.200d.txt\"\n",
+        "tmp_file = get_tmpfile(\"test_word2vec.txt\")\n",
+        "_ = glove2word2vec(glove_file, tmp_file)\n",
+        "glove_model = KeyedVectors.load_word2vec_format(tmp_file)\n",
+        "glove_word_to_embeddings = {word: glove_model[word] for word in glove_model.key_to_index}"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Rl4mk08W27Bs",
+        "outputId": "6ce3f074-e235-41e2-ba39-c5d6e01b2598"
+      },
+      "execution_count": 17,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "<ipython-input-17-a08680d1240c>:7: DeprecationWarning: Call to deprecated `glove2word2vec` (KeyedVectors.load_word2vec_format(.., binary=False, no_header=True) loads GLoVE text vectors.).\n",
+            "  _ = glove2word2vec(glove_file, tmp_file)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# convert lyrics to vectors based on the word embeddings\n",
+        "data = [] \n",
+        "labels = [] \n",
+        "\n",
+        "for _, row in df.iterrows(): \n",
+        "  label = row[\"Genre\"] \n",
+        "  lyrics = row[\"LyricsList\"] \n",
+        "  feature_vector = np.zeros((200,)) \n",
+        "  song_length = 0 \n",
+        "  for line in lyrics: \n",
+        "    song_length += len(line) \n",
+        "    for word in line: \n",
+        "      try:\n",
+        "        feature_vector += glove_word_to_embeddings[word] \n",
+        "      except:\n",
+        "        pass\n",
+        "  data.append(feature_vector/song_length) \n",
+        "  labels.append(label)"
+      ],
+      "metadata": {
+        "id": "H93Xgxpkljon",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "3be11635-893a-478f-d0da-99c4ac345f5f"
+      },
+      "execution_count": 18,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "<ipython-input-18-ed6ab45c3a86>:17: RuntimeWarning: invalid value encountered in true_divide\n",
+            "  data.append(feature_vector/song_length)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# check for nan values in data\n",
+        "# if present, remove that row in data and labels\n",
+        "index_to_remove = list()\n",
+        "c = 0\n",
+        "for i in range(len(data)):\n",
+        "  if np.isnan(data[i]).any():\n",
+        "    index_to_remove.append(i)\n",
+        "\n",
+        "\n",
+        "index_to_remove = sorted(index_to_remove, reverse=True)\n",
+        "for i in index_to_remove:\n",
+        "  data.pop(i)\n",
+        "  labels.pop(i)"
+      ],
+      "metadata": {
+        "id": "lupvG20Qqphp"
+      },
+      "execution_count": 19,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# split data into train and test\n",
+        "X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, random_state=42)\n",
+        "\n",
+        "svm_model = SVC(kernel='linear', C=1.0)\n",
+        "svm_model.fit(X_train, y_train)\n",
+        "\n",
+        "y_pred = svm_model.predict(X_test)\n",
+        "accuracy = accuracy_score(y_test, y_pred)\n",
+        "print('Accuracy:', accuracy)\n",
+        "\n",
+        "precision = precision_score(y_test, y_pred, average='weighted')\n",
+        "recall = recall_score(y_test, y_pred, average='weighted')\n",
+        "\n",
+        "print(\"Precision:\", precision)\n",
+        "print(\"Recall:\", recall)"
+      ],
+      "metadata": {
+        "id": "1vdzcSTlqpfB",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "ddfc66d6-057e-40c5-a69b-26cabd88c1fc"
+      },
+      "execution_count": 21,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Accuracy: 0.3987010722692006\n",
+            "Precision: 0.3005364445028348\n",
+            "Recall: 0.3987010722692006\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "/usr/local/lib/python3.9/dist-packages/sklearn/metrics/_classification.py:1344: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.\n",
+            "  _warn_prf(average, modifier, msg_start, len(result))\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
