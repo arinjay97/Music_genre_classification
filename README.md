@@ -2,7 +2,9 @@
 
 ## CODE AUTHORS
 Arinjay Jain
+
 Dhruv Doshi
+
 Santosh Saranyan
 
 ## FILES IN REPOSITORY
